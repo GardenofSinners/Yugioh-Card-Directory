@@ -1,75 +1,48 @@
-﻿using Newtonsoft.Json;
-using Newtonsoft.Json.Linq;
+﻿using Newtonsoft.Json.Linq;
 using System;
-using System.Collections.Generic;
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Net;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Windows.Forms;
+using static Yugioh_Card_Directory.JsonHandler;
 
 namespace Yugioh_Card_Directory
 {
     public partial class Form1 : Form
     {
 
-        [Serializable]
-        public class RootObject
-        {
-            public string status { get; set; }
-            public List<string> cards { get; set; }
-        }
+        #region General variables + webclient
+        WebClient webClient = new WebClient();
+        public string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
+        public string invalid = new string(Path.GetInvalidFileNameChars()) + new string(Path.GetInvalidPathChars());
+        #endregion
 
-        //Public setters / getters
-        public string name { get; set; }
-        public string image_path { get; set; }
-        public string thumbnail_path { get; set; }
-        public string text { get; set; }
-        public string type { get; set; }
-        public string number { get; set; }
-        public string price_low { get; set; }
-        public string price_avg { get; set; }
-        public string price_high { get; set; }
-        public string tcgplayer_link { get; set; }
-        public bool is_monster { get; set; }
-        public bool is_spell { get; set; }
-        public bool is_illegal { get; set; }
-        public bool is_trap { get; set; }
-        public bool has_name_condition { get; set; }
-        public string property { get; set; }
-
+        #region Main Form / Parse JSON and throw it into listbox
         public Form1()
         {
             InitializeComponent();
 
-            //File Directory
             var mainFilePath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().CodeBase);
             var jsonPath = Path.Combine(mainFilePath, "JSON\\cardNames.json");
-
-            //Read text from json file.
             string json = File.ReadAllText(@"JSON\\cardNames.json");
-
-            //Deserialize JSON
             var jsonData = JObject.Parse(json);
 
             //Throws information into listbox.
             listBox1.DataSource = jsonData["cards"];
 
         }
+        #endregion
 
+        #region Listview Change information on new selected item
         public void listBox1_SelectedIndexChanged_1(object sender, EventArgs e)
         {
             string cardname = listBox1.SelectedItem.ToString();
-
-            string testing = cardname;
-            WebClient webClient = new WebClient();
-
-            //Download json file to variable and parse.
             JObject cardInfo = JObject.Parse(webClient.DownloadString($"https://www.ygohub.com/api/card_info?name={cardname}"));
 
-            try  {
+            try
+            {
 
                 // ======================== Variables ====================================
                 string imagepath = (string)cardInfo["card"]["image_path"];
@@ -127,93 +100,98 @@ namespace Yugioh_Card_Directory
                 using (var response = request.GetResponse())
                 using (var stream = response.GetResponseStream())
                 {
-                    pictureBox1.Image = Bitmap.FromStream(stream);
+                    pictureBox1.Image = Image.FromStream(stream);
                 }
 
                 // ======================== End Images ====================================
 
             }
-            catch {
-
-            }   
+            catch
+            {
+                MessageBox.Show("There was an error reading from the data variables", "Critical Error", MessageBoxButtons.OK, MessageBoxIcon.Exclamation, MessageBoxDefaultButton.Button1);
+            }
         }
+        #endregion
 
+        #region Buy card now button.
         private void BuyNow_Button_Click(object sender, EventArgs e)
         {
-
-            WebClient webClient = new WebClient();
             string cardname = listBox1.SelectedItem.ToString();
             JObject cardInfo = JObject.Parse(webClient.DownloadString($"https://www.ygohub.com/api/card_info?name={cardname}"));
-
             string buyUrl = (string)cardInfo["card"]["tcgplayer_link"];
-            
             System.Diagnostics.Process.Start($"{buyUrl}");
         }
+        #endregion
 
+        #region Print Information to TextBox
         private void Translate_Button_Click(object sender, EventArgs e)
         {
-
             if (this.Width == 512)
             {
                 this.Width = 810;
                 Translate_Button.Text = "Hide Translated Information";
-            } else
+            }
+            else
             {
                 this.Width = 512;
                 Translate_Button.Text = "Translate";
             }
-
-       
         }
+        #endregion
 
-        // =========================== For Saving Images =========================
+        #region =========================== For Saving Images =========================
         private void imageToolStripMenuItem_Click(object sender, EventArgs e)
         {
             string cardname = listBox1.SelectedItem.ToString();
             string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
-            Directory.CreateDirectory(desktopPath+"\\Yu-Gi-Oh Cards\\" + "Card Images\\");
+            Directory.CreateDirectory(desktopPath + "\\Yu-Gi-Oh Cards\\" + "Card Images\\");
+            checkforIllegalCharacters(cardname);
+        }
+        #endregion
 
-            string invalid = new string(Path.GetInvalidFileNameChars()) + new string(Path.GetInvalidPathChars());
-
+        #region Check for illegal characters in image saving
+        private void checkforIllegalCharacters(string cardname){
             foreach (char c in invalid)
             {
                 cardname = cardname.Replace(c.ToString(), "");
             }
             pictureBox1.Image.Save($"{desktopPath}\\Yu-Gi-Oh Cards\\Card Images\\{cardname}.jpg", ImageFormat.Jpeg);
         }
-        // =========================== End Saving Images =========================
+        #endregion
 
-        // =========================== Exitting the program ======================
+        #region =========================== Exitting the program ======================
         private void exitToolStripMenuItem_Click(object sender, EventArgs e)
         {
-            System.Windows.Forms.Application.Exit();
+            Application.Exit();
         }
-        // =========================== Exit Application ==========================
+        #endregion
 
+        #region =========================== Save Card Information ======================
         private void cardInformationToolStripMenuItem_Click(object sender, EventArgs e)
         {
             string cardname = listBox1.SelectedItem.ToString();
-            WebClient webClient = new WebClient();
             JObject cardInfo = JObject.Parse(webClient.DownloadString($"https://www.ygohub.com/api/card_info?name={cardname}"));
 
-            string invalid = new string(Path.GetInvalidFileNameChars()) + new string(Path.GetInvalidPathChars());
-            
             foreach (char c in invalid)
             {
                 cardname = cardname.Replace(c.ToString(), "");
             }
 
-            string desktopPath = Environment.GetFolderPath(Environment.SpecialFolder.Desktop);
             Directory.CreateDirectory(desktopPath + "\\Yu-Gi-Oh Cards\\" + "Card Information\\");
             TextWriter txt = new StreamWriter($"{desktopPath}\\Yu-Gi-Oh Cards\\Card Information\\{cardname}.txt");
             txt.Write(textBox1.Text);
             txt.Close();
         }
+        #endregion
 
+
+        #region Show About Form
         private void instructionsToolStripMenuItem_Click(object sender, EventArgs e)
         {
             AboutBox1 about = new AboutBox1();
             about.ShowDialog();
         }
+        #endregion
+
     }
 }
